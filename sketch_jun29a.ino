@@ -1,6 +1,6 @@
 #define BLYNK_TEMPLATE_ID "TMPL2ICpA9uXR"
 #define BLYNK_TEMPLATE_NAME "Quickstart Device"
-#define BLYNK_AUTH_TOKEN "SEU_TOKEN_AQUI"
+#define BLYNK_AUTH_TOKEN "7VXnkSGWGjm878MVradiOE3-6pcE2lsu"
 #define BLYNK_PRINT Serial
 #define BUTTON_PIN 5  // Botão conectado no GPIO5 (pull-up interno)
 
