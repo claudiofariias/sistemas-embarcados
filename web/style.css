@@ -27,14 +27,14 @@
       left: 0;
       right: 0;
       bottom: 0;
-      backdrop-filter: blur(20px) brightness(0.6);
+      backdrop-filter: blur(10px) brightness(0.6);
       z-index: -1;
     }
 
     .container {
       width: 100%;
       max-width: 420px;
-      background: rgba(28, 28, 30, 0.7);
+      background: rgba(28, 28, 30, 0);
       border-radius: 24px;
       padding: 24px;
       backdrop-filter: blur(20px);
