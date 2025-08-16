@@ -1,117 +1,83 @@
-# Despertador Inteligente com ESP32 e Interface Web
 
-![Diagrama do Sistema](images/diagrama.jpeg)
-![Projeto](images/prototipo/)
+# Medicine Reminder System - ESP32
 
-## 📝 Descrição
-Sistema completo de despertador inteligente com:
-- **ESP32** como controlador principal
-- **Interface Web** moderna para controle remoto
-- Display OLED para visualização local
-- Notificações audiovisuais (buzzer + LED)
-- Sincronização automática de horário via Internet
+## Descrição do Projeto
 
-## 🌟 Funcionalidades Principais
-- ✅ Agendamento de alarmes via interface web
-- ✅ Visualização em tempo real no display OLED
-- ✅ Cancelamento por botão físico ou pela web
-- ✅ Design responsivo para celulares e tablets
-- ✅ Sincronização automática de horário (NTP)
+Este projeto consiste em um **Sistema de Lembrete de Medicamentos** baseado em **ESP32**. Ele utiliza a conectividade **Wi-Fi** e **MQTT** para receber mensagens que configuram alarmes para lembrar o usuário de tomar medicamentos. O sistema é composto por um display **OLED**, um **buzzer**, um **LED** e um **botão** para interação.
 
-## 📦 Componentes Necessários
+### Funcionalidades:
 
-### Hardware
-| Componente          | Quantidade | Observações                     |
-|---------------------|------------|----------------------------------|
-| ESP32 DevKit        | 1          | Modelo com Wi-Fi integrado       |
-| Display OLED I2C    | 1          | 128x64 pixels                   |
-| Buzzer ativo        | 1          | 5V com oscilador interno        |
-| LED do ESP32        | 1          | Azul + resistor 220Ω            |
-| Botão táctil        | 1          | Para cancelamento manual        |
-| Protoboard          | 1          | 400 pontos ou similar           |
-| Jumpers             | 6          | Macho-macho                     |
+- **Adicionar alarmes** para medicamentos com hora e minuto específicos.
+- **Exibir os próximos alarmes** no display OLED.
+- **Alarme sonoro** e visual com buzzer e LED.
+- **Controle via MQTT** para adicionar, remover ou listar alarmes.
+- **Integração com servidor NTP** para hora atual.
 
-### Software
-- **ESP32**:
-  - Arduino IDE (v2.0+)
-  - Bibliotecas:
-    - Blynk (para API)
-    - Adafruit SSD1306
-    - NTPClient
+## Componentes Usados
 
-- **Frontend Web**:
-  - Navegador moderno (Chrome, Edge, Safari)
-  - Conexão com a internet
+- **ESP32** - Placa principal do projeto.
+- **Display OLED SSD1306** - Para exibir informações sobre os alarmes e o horário atual.
+- **Buzzer** - Para gerar o som de alerta quando o alarme for disparado.
+- **LED** - Para indicar visualmente que o alarme está sendo acionado.
+- **Botão** - Para interromper o alarme.
 
-## 🔌 Conexões do Hardware
+## Como Executar o Projeto
 
-| Pino ESP32 | Componente      | Observação               |
-|------------|----------------|--------------------------|
-| 3V3        | OLED VCC       | Alimentação              |
-| GND        | OLED GND       |                          |
-| GPIO21     | OLED SDA       | Dados I2C                |
-| GPIO22     | OLED SCL       | Clock I2C                |
-| GPIO4      | Buzzer (+)     |                          |
-| GPIO2      | LED (+)        | Com resistor             |
-| GPIO5      | Botão          | Outro terminal no GND    |
+### Ferramentas Necessárias
 
-## 🚀 Como Configurar
+- **Arduino IDE** (ou PlatformIO)
+- **Bibliotecas necessárias**:
+  - `WiFi.h` - Para conectividade Wi-Fi.
+  - `PubSubClient.h` - Para comunicação MQTT.
+  - `Adafruit_SSD1306.h` - Para controlar o display OLED.
+  - `Adafruit_GFX.h` - Para funções gráficas do display OLED.
+  - `WiFiUdp.h` e `NTPClient.h` - Para sincronização de hora via NTP.
+- **MQTT Broker**: `broker.hivemq.com` (ou outro broker MQTT de sua preferência)
 
-### 1. Programação do ESP32
-1. Instale o [Arduino IDE](https://www.arduino.cc/en/software)
-2. Adicione suporte ao ESP32:
-   ```text
-   https://dl.espressif.com/dl/package_esp32_index.json
+### Passos para Configuração
 
-# Despertador Inteligente com ESP32 e Interface Web
+1. **Instalar o Arduino IDE**:
+   - Baixe e instale o [Arduino IDE](https://www.arduino.cc/en/software).
+   
+2. **Instalar as Bibliotecas Necessárias**:
+   - Abra o Arduino IDE.
+   - Vá para **Sketch** > **Incluir Biblioteca** > **Gerenciar Bibliotecas**.
+   - Instale as bibliotecas:
+     - `WiFi`
+     - `PubSubClient`
+     - `Adafruit SSD1306`
+     - `Adafruit GFX`
+     - `WiFiUdp`
+     - `NTPClient`
 
-## 📋 Pré-requisitos
+3. **Configurar o Código**:
+   - No código fornecido, altere as variáveis `ssid` e `pass` para os dados da sua rede Wi-Fi.
+   - Caso queira utilizar um broker MQTT personalizado, altere as variáveis relacionadas ao **broker MQTT**.
 
-### Bibliotecas Necessárias (Instalar via Arduino Library Manager)
-- Blynk (v1.0.1)
-- Adafruit SSD1306 (v2.5.7)
-- Adafruit GFX Library (v1.11.3)
-- NTPClient (v3.2.0)
+4. **Carregar o Código no ESP32**:
+   - Selecione a placa **ESP32** no Arduino IDE.
+   - Conecte o ESP32 ao computador e faça o upload do código.
 
-## 🔄 Upload do Código
-1. Conecte o ESP32 via USB
-2. Selecione:
-   - Placa: `ESP32 Dev Module`
-   - Porta: `COMx` (identifique a porta correta)
-3. Clique em `Upload`
+5. **Conectar ao Broker MQTT**:
+   - O sistema se conectará automaticamente ao **broker MQTT** especificado.
+   - A partir daí, você pode começar a controlar os alarmes via MQTT enviando mensagens para os tópicos especificados.
 
-https://sistemas-embarcados-two.vercel.app/
+### Tópicos MQTT:
 
-## 🖥️ Manual Rápido
+- **medicine_reminder/hour** - Para definir a hora do alarme.
+- **medicine_reminder/minute** - Para definir o minuto do alarme.
+- **medicine_reminder/medicine** - Para definir o nome do medicamento.
+- **medicine_reminder/add** - Para adicionar um novo alarme (valor "1" no payload).
+- **medicine_reminder/clear** - Para remover todos os alarmes (valor "1" no payload).
+- **medicine_reminder/status** - Para receber status sobre o sistema.
+- **medicine_reminder/list** - Para listar todos os alarmes configurados.
 
-### Adicionar Alarme
-1. Selecione o horário no seletor de tempo
-2. Insira a descrição (ex: "Paracetamol 500mg")
-3. Clique em `Adicionar Alarme`
+### Como Interagir via Web
 
-### Gerenciamento de Alarmes
-| Função               | Ação                                                                 |
-|----------------------|---------------------------------------------------------------------|
-| Visualização         | Lista atualizada em tempo real dos próximos alarmes                 |
-| Cancelar Todos       | Remove todos os alarmes agendados                                   |
-| Histórico            | Alarmes passados aparecem marcados com ícone ✅                    |
+O sistema também pode ser controlado via **aplicativo Web**, que se conecta ao mesmo broker MQTT para interagir com o ESP32. O código JavaScript principal do repositório é responsável por enviar as mensagens para configurar os alarmes, adicionar novos, limpar alarmes existentes e obter o status.
 
-## 🛠️ Troubleshooting
 
-| Sintoma               | Solução                                                                 |
-|-----------------------|-------------------------------------------------------------------------|
-| Buzzer silencioso     | 1. Verifique conexão no GPIO4<br>2. Confira se é buzzer ativo (5V)     |
-| Display inoperante    | 1. Cheque conexões I2C (SDA/SCL)<br>2. Valide endereço 0x3C           |
-| Falha de conexão      | 1. Verifique rede Wi-Fi<br>2. Confira se ESP32 está online             |
-| Horário incorreto     | 1. Verifique configuração NTP<br>2. Confira fuso horário (-3 para BR)  |
 
-## 🔮 Roadmap
-- [ ] Notificações push no navegador
-- [ ] Suporte a múltiplos usuários
-- [ ] Sincronização com Google Calendar
-- [ ] Modo noturno automático
+## Conclusão
 
-## 🌐 Acesso à Interface Web
-Acesse diretamente pelo navegador: 
-   ```text
-   https://sistemas-embarcados-two.vercel.app/
+Este sistema pode ser controlado tanto pelo **ESP32** quanto através de um **aplicativo web** que interage via MQTT. O aplicativo permite a adição, remoção e listagem de alarmes diretamente na interface web, tornando a solução ainda mais flexível.

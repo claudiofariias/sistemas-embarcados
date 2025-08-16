@@ -1,11 +1,6 @@
-#define BLYNK_TEMPLATE_ID "TMPL2ICpA9uXR"
-#define BLYNK_TEMPLATE_NAME "Quickstart Device"
-#define BLYNK_AUTH_TOKEN "7VXnkSGWGjm878MVradiOE3-6pcE2lsu"
-#define BLYNK_PRINT Serial
-#define BUTTON_PIN 5  // Botão conectado no GPIO5 (pull-up interno)
-
 #include <WiFi.h>
-#include <BlynkSimpleEsp32.h>
+#include <WiFiClient.h>
+#include <PubSubClient.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -21,9 +16,28 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define BUZZER_PIN 4
 #define LED_PIN 2
+#define BUTTON_PIN 5
 
-char ssid[] = "SUA_REDE_WIFI";
-char pass[] = "SENHA_WIFI";
+// Configurações WiFi
+char ssid[] = "SEU-WIFI";
+char pass[] = "SUA-SENHA";
+
+// Configurações MQTT
+const char* mqtt_server = "broker.hivemq.com";
+const int mqtt_port = 1883;
+const char* mqtt_client_id = "ESP32_Medicine_Reminder";
+const char* mqtt_username = ""; // Se necessário
+const char* mqtt_password = ""; // Se necessário
+
+// Tópicos MQTT
+const char* topic_prefix = "medicine_reminder/";
+const char* topic_hour = "medicine_reminder/hour";
+const char* topic_minute = "medicine_reminder/minute";
+const char* topic_medicine = "medicine_reminder/medicine";
+const char* topic_add = "medicine_reminder/add";
+const char* topic_clear = "medicine_reminder/clear";
+const char* topic_status = "medicine_reminder/status";
+const char* topic_list = "medicine_reminder/list";
 
 struct Alarm {
   int hour;
@@ -34,11 +48,14 @@ struct Alarm {
 std::vector<Alarm> alarms;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", -3 * 3600);
-BlynkTimer timer;
+
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 int tempHour = 0;
 int tempMinute = 0;
 String tempMedicine = "";
+bool needsDisplayUpdate = true;
 
 void setup() {
   Serial.begin(115200);
@@ -51,7 +68,7 @@ void setup() {
   
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Botão com pull-up interno
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   
   // Conecta WiFi
   WiFi.begin(ssid, pass);
@@ -62,19 +79,114 @@ void setup() {
   display.println("Conectando WiFi...");
   display.display();
   
-  while (WiFi.status() != WL_CONNECTED) delay(500);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+  // Configura MQTT
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
   
   timeClient.begin();
-  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
-  timer.setInterval(1000L, checkAlarms);
+  reconnect();
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Mensagem recebida [");
+  Serial.print(topic);
+  Serial.print("] ");
+  
+  String message;
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+  Serial.println(message);
+  
+  if (strcmp(topic, topic_hour) == 0) {
+    tempHour = message.toInt();
+  } else if (strcmp(topic, topic_minute) == 0) {
+    tempMinute = message.toInt();
+  } else if (strcmp(topic, topic_medicine) == 0) {
+    tempMedicine = message;
+  } else if (strcmp(topic, topic_add) == 0 && message == "1") {
+    if (tempMedicine != "") {
+      addAlarm(tempHour, tempMinute, tempMedicine);
+      tempMedicine = ""; // Reseta após adicionar
+    }
+  } else if (strcmp(topic, topic_clear) == 0 && message == "1") {
+    alarms.clear();
+    client.publish(topic_status, "Todos os alarmes foram removidos");
+    needsDisplayUpdate = true;
+  } else if (strcmp(topic, topic_list) == 0) {
+    sendAlarmsList();
+  }
+}
+
+void addAlarm(int hour, int minute, String medicine) {
+  // Verifica se o alarme já existe
+  for (const auto& alarm : alarms) {
+    if (alarm.hour == hour && alarm.minute == minute && alarm.medicine == medicine) {
+      client.publish(topic_status, "Alarme já existe");
+      return;
+    }
+  }
+  
+  alarms.push_back({hour, minute, medicine});
+  std::sort(alarms.begin(), alarms.end(), [](const Alarm &a, const Alarm &b) {
+    return (a.hour < b.hour) || (a.hour == b.hour && a.minute < b.minute);
+  });
+  
+  String statusMsg = "Alarme adicionado: " + String(hour) + ":" + String(minute) + " - " + medicine;
+  client.publish(topic_status, statusMsg.c_str());
+  needsDisplayUpdate = true;
+  
+  // Publica a lista atualizada de alarmes
+  sendAlarmsList();
+}
+
+void sendAlarmsList() {
+  String alarmList = "";
+  for (const auto& alarm : alarms) {
+    if (alarmList.length() > 0) alarmList += "|";
+    alarmList += String(alarm.hour) + "," + String(alarm.minute) + "," + alarm.medicine;
+  }
+  client.publish(topic_list, alarmList.c_str());
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Conectando ao broker MQTT...");
+    if (client.connect(mqtt_client_id, mqtt_username, mqtt_password)) {
+      Serial.println("conectado");
+      
+      // Inscreve nos tópicos necessários
+      client.subscribe(topic_hour);
+      client.subscribe(topic_minute);
+      client.subscribe(topic_medicine);
+      client.subscribe(topic_add);
+      client.subscribe(topic_clear);
+      client.subscribe(topic_list);
+      
+      // Publica uma mensagem de status ao conectar
+      client.publish(topic_status, "ESP32 Despertador Inteligente conectado");
+      
+      // Envia a lista atual de alarmes
+      sendAlarmsList();
+    } else {
+      Serial.print("falha, rc=");
+      Serial.print(client.state());
+      Serial.println(" tentando novamente em 5 segundos");
+      delay(5000);
+    }
+  }
 }
 
 void triggerAlarm() {
   unsigned long startTime = millis();
   bool interrupted = false;
   
-  while ((millis() - startTime < 30000) && !interrupted) { // Toca por até 30s
-    // Toca por 1 segundo
+  while ((millis() - startTime < 30000) && !interrupted) {
     digitalWrite(BUZZER_PIN, HIGH);
     digitalWrite(LED_PIN, HIGH);
     unsigned long toneStart = millis();
@@ -85,7 +197,6 @@ void triggerAlarm() {
       delay(10);
     }
     
-    // Pausa por 1 segundo
     digitalWrite(BUZZER_PIN, LOW);
     digitalWrite(LED_PIN, LOW);
     unsigned long pauseStart = millis();
@@ -101,8 +212,12 @@ void triggerAlarm() {
   digitalWrite(LED_PIN, LOW);
 }
 
+unsigned long lastTimeUpdate = 0;
+const unsigned long timeUpdateInterval = 1000; // Atualiza a cada 1 segundo
+
 void updateDisplay() {
-  timeClient.update();
+  timeClient.update(); // Atualiza o horário do NTP
+  
   display.clearDisplay();
   
   // Mostra próximo alarme
@@ -127,14 +242,46 @@ void updateDisplay() {
   display.setTextColor(BLACK);
   display.setCursor(10, 22);
   display.setTextSize(2);
+  
   int hours = timeClient.getHours();
   int mins = timeClient.getMinutes();
+  int secs = timeClient.getSeconds();
+  
   display.print(hours);
   display.print(":");
   if (mins < 10) display.print("0");
   display.print(mins);
   
+  // Mostra segundos 
+  display.setTextSize(1);
+  display.setCursor(90, 40);
+  display.print(":");
+  if (secs < 10) display.print("0");
+  display.print(secs);
+  
   display.display();
+}
+
+void loop() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  
+  unsigned long currentMillis = millis();
+  
+  // Atualiza o display a cada segundo
+  if (currentMillis - lastTimeUpdate >= timeUpdateInterval) {
+    lastTimeUpdate = currentMillis;
+    updateDisplay();
+  }
+  
+  // Verifica alarmes a cada minuto, para evitar verificações desnecessárias
+  static unsigned long lastAlarmCheck = 0;
+  if (currentMillis - lastAlarmCheck >= 60000) {
+    lastAlarmCheck = currentMillis;
+    checkAlarms();
+  }
 }
 
 void checkAlarms() {
@@ -144,41 +291,19 @@ void checkAlarms() {
   
   for (auto it = alarms.begin(); it != alarms.end(); ) {
     if (it->hour == currentHour && it->minute == currentMinute) {
-      String medicine = it->medicine; // Salva antes de apagar
+      String medicine = it->medicine;
+      String statusMsg = "ALARME: " + String(it->hour) + ":" + String(it->minute) + " - " + medicine;
+      client.publish(topic_status, statusMsg.c_str());
+      
       it = alarms.erase(it);
-      Blynk.virtualWrite(V5, "Alarme: " + medicine);
-      triggerAlarm(); // Toca o alarme (pode ser interrompido pelo botão)
+      triggerAlarm();
+      needsDisplayUpdate = true;
+      
+      // Atualiza a lista após remover o alarme
+      sendAlarmsList();
     } else {
       ++it;
     }
   }
-  updateDisplay();
 }
 
-BLYNK_WRITE(V1) { tempHour = param.asInt(); }
-BLYNK_WRITE(V2) { tempMinute = param.asInt(); }
-BLYNK_WRITE(V3) { tempMedicine = param.asStr(); }
-
-BLYNK_WRITE(V4) {
-  if (param.asInt() == 1 && tempMedicine != "") {
-    alarms.push_back({tempHour, tempMinute, tempMedicine});
-    std::sort(alarms.begin(), alarms.end(), [](const Alarm &a, const Alarm &b) {
-      return (a.hour < b.hour) || (a.hour == b.hour && a.minute < b.minute);
-    });
-    Blynk.virtualWrite(V5, "Alarme adicionado: " + tempMedicine);
-    updateDisplay();
-  }
-}
-
-BLYNK_WRITE(V7) {
-  if (param.asInt() == 1) {
-    alarms.clear();
-    Blynk.virtualWrite(V5, "Todos os alarmes foram removidos");
-    updateDisplay();
-  }
-}
-
-void loop() {
-  Blynk.run();
-  timer.run();
-}
