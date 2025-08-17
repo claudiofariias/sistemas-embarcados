@@ -167,6 +167,8 @@ function requestAlarmsList() {
   }
 }
 
+const apiUrl = 'https://sistemas-embarcados-51pz.vercel.app/api/alarms';
+
 async function addAlarm() {
   const time = document.getElementById('alarmTime').value;
   const medicine = document.getElementById('alarmDesc').value.trim();
