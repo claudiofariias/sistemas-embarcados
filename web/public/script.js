@@ -189,6 +189,8 @@ async function addAlarm() {
       ? '/api/alarms'
       : `${window.location.origin}/api/alarms`;
 
+    console.log('Tentando acessar:', apiUrl);
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 
