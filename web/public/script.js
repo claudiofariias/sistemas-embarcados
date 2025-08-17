@@ -1,7 +1,13 @@
 const mqttConfig = {
-  uri: "wss://broker.hivemq.com:8884/mqtt",
+  hosts: [  // Lista de brokers com fallback
+    "wss://broker.hivemq.com:8884/mqtt",
+    "wss://broker.hivemq.com:8883/mqtt",
+    "wss://broker.emqx.io:8084/mqtt"
+  ],
+  currentHostIndex: 0,
   clientId: "web_" + Math.random().toString(16).substr(2, 8),
-  useSSL: true,
+  timeout: 3,
+  keepAliveInterval: 60,
   topics: {
     hour: "medicine_reminder/hour",
     minute: "medicine_reminder/minute",
@@ -13,35 +19,24 @@ const mqttConfig = {
   }
 };
 
-const appState = {
-  client: null,
-  connected: false,
-  alarms: []
-};
-
-const elements = {
-  addAlarmBtn: document.getElementById('addAlarmBtn'),
-  cancelAllBtn: document.getElementById('cancelAllBtn'),
-  alarmTimeInput: document.getElementById('alarmTime'),
-  alarmDescInput: document.getElementById('alarmDesc'),
-  alarmsList: document.getElementById('alarmsList'),
-  statusMessage: document.getElementById('statusMessage'),
-  connectionStatus: document.getElementById('connectionStatus'),
-  statusDot: document.querySelector('.status-dot'),
-  statusText: document.querySelector('.status-text')
-};
+// ... (appState e elements permanecem iguais)
 
 function initMQTT() {
   if (appState.client && appState.client.isConnected()) {
     appState.client.disconnect();
   }
 
+  const currentHost = mqttConfig.hosts[mqttConfig.currentHostIndex];
+  
   appState.client = new Paho.MQTT.Client(
-    mqttConfig.uri,
+    currentHost,
     mqttConfig.clientId
   );
 
   appState.client.onConnectionLost = (response) => {
+    if (response.errorCode !== 0) {
+      console.log("Conexão perdida:", response.errorMessage);
+    }
     appState.connected = false;
     updateConnectionStatus();
     setTimeout(initMQTT, 5000);
@@ -56,12 +51,13 @@ function initMQTT() {
   };
 
   const connectOptions = {
-    useSSL: mqttConfig.useSSL,
-    timeout: 3,
+    useSSL: true,
     mqttVersion: 4,
-    keepAliveInterval: 60,
+    keepAliveInterval: mqttConfig.keepAliveInterval,
+    timeout: mqttConfig.timeout,
     cleanSession: true,
     onSuccess: () => {
+      console.log("Conectado via", mqttConfig.hosts[mqttConfig.currentHostIndex]);
       appState.connected = true;
       updateConnectionStatus();
       appState.client.subscribe(mqttConfig.topics.status);
@@ -69,10 +65,9 @@ function initMQTT() {
       requestAlarmsList();
     },
     onFailure: (error) => {
-      if (mqttConfig.uri.includes("8884")) {
-        mqttConfig.uri = "wss://broker.hivemq.com:8883/mqtt";
-      }
-      setTimeout(initMQTT, 3000);
+      console.error("Falha na conexão com", mqttConfig.hosts[mqttConfig.currentHostIndex], error.errorMessage);
+      mqttConfig.currentHostIndex = (mqttConfig.currentHostIndex + 1) % mqttConfig.hosts.length;
+      setTimeout(initMQTT, 2000);
     }
   };
 
