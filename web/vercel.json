@@ -14,7 +14,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "connect-src 'self' ws://broker.hivemq.com:8884 wss://broker.hivemq.com:8884 wss://broker.hivemq.com:8883"
+          "value": "connect-src 'self' wss://broker.hivemq.com wss://broker.hivemq.com:8884 wss://broker.hivemq.com:8883 ws://localhost:*"
         },
         {
           "key": "Access-Control-Allow-Origin",

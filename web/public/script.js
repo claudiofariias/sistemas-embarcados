@@ -1,11 +1,7 @@
 const mqttConfig = {
-  host: "broker.hivemq.com",
-  port: 8884,
-  path: "/mqtt",
+  uri: "wss://broker.hivemq.com:8884/mqtt",
   clientId: "web_" + Math.random().toString(16).substr(2, 8),
   useSSL: true,
-  protocol: "wss",
-  reconnect: true,
   topics: {
     hour: "medicine_reminder/hour",
     minute: "medicine_reminder/minute",
@@ -17,22 +13,55 @@ const mqttConfig = {
   }
 };
 
+const appState = {
+  client: null,
+  connected: false,
+  alarms: []
+};
+
+const elements = {
+  addAlarmBtn: document.getElementById('addAlarmBtn'),
+  cancelAllBtn: document.getElementById('cancelAllBtn'),
+  alarmTimeInput: document.getElementById('alarmTime'),
+  alarmDescInput: document.getElementById('alarmDesc'),
+  alarmsList: document.getElementById('alarmsList'),
+  statusMessage: document.getElementById('statusMessage'),
+  connectionStatus: document.getElementById('connectionStatus'),
+  statusDot: document.querySelector('.status-dot'),
+  statusText: document.querySelector('.status-text')
+};
+
 function initMQTT() {
-  const hostUri = `wss://${mqttConfig.host}:${mqttConfig.port}${mqttConfig.path}`;
-  
+  if (appState.client && appState.client.isConnected()) {
+    appState.client.disconnect();
+  }
+
   appState.client = new Paho.MQTT.Client(
-    hostUri,
+    mqttConfig.uri,
     mqttConfig.clientId
   );
+
+  appState.client.onConnectionLost = (response) => {
+    appState.connected = false;
+    updateConnectionStatus();
+    setTimeout(initMQTT, 5000);
+  };
+
+  appState.client.onMessageArrived = (message) => {
+    if (message.destinationName === mqttConfig.topics.status) {
+      showStatus(message.payloadString, "success");
+    } else if (message.destinationName === mqttConfig.topics.list) {
+      updateAlarmsList(message.payloadString);
+    }
+  };
 
   const connectOptions = {
     useSSL: mqttConfig.useSSL,
     timeout: 3,
-    mqttVersion: 4, 
+    mqttVersion: 4,
     keepAliveInterval: 60,
     cleanSession: true,
     onSuccess: () => {
-      console.log("Conectado ao broker MQTT via WSS");
       appState.connected = true;
       updateConnectionStatus();
       appState.client.subscribe(mqttConfig.topics.status);
@@ -40,32 +69,10 @@ function initMQTT() {
       requestAlarmsList();
     },
     onFailure: (error) => {
-      console.error("Falha na conexão WSS:", error.errorMessage);
-      if (mqttConfig.port === 8884) {
-        console.log("Tentando porta 8883...");
-        mqttConfig.port = 8883;
-        setTimeout(initMQTT, 3000);
-      } else {
-        setTimeout(initMQTT, 5000);
+      if (mqttConfig.uri.includes("8884")) {
+        mqttConfig.uri = "wss://broker.hivemq.com:8883/mqtt";
       }
-    }
-  };
-
-  appState.client.onConnectionLost = (response) => {
-    if (response.errorCode !== 0) {
-      console.log("Conexão perdida:", response.errorMessage);
-    }
-    appState.connected = false;
-    updateConnectionStatus();
-    setTimeout(initMQTT, 5000);
-  };
-
-  appState.client.onMessageArrived = (message) => {
-    console.log("Mensagem recebida:", message.destinationName, message.payloadString);
-    if (message.destinationName === mqttConfig.topics.status) {
-      showStatus(message.payloadString, "success");
-    } else if (message.destinationName === mqttConfig.topics.list) {
-      updateAlarmsList(message.payloadString);
+      setTimeout(initMQTT, 3000);
     }
   };
 
@@ -143,8 +150,6 @@ async function addAlarm() {
       throw new Error('Formato de hora inválido (use HH:MM)');
     }
 
-    console.log(`Enviando: ${hour}:${minute} - ${medicine}`); 
-
     const response = await fetch('/api/alarms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -159,10 +164,9 @@ async function addAlarm() {
     showStatus('Alarme adicionado com sucesso!', 'success');
     elements.alarmTimeInput.value = '';
     elements.alarmDescInput.value = '';
-    requestAlarmsList(); 
+    requestAlarmsList();
 
   } catch (error) {
-    console.error('Erro ao adicionar alarme:', error);
     showStatus(error.message, 'error');
   }
 }
@@ -177,7 +181,6 @@ function sendMessage(topic, message) {
     const msg = new Paho.MQTT.Message(message);
     msg.destinationName = topic;
     appState.client.send(msg);
-    console.log(`[MQTT] Enviado: ${topic} | ${message}`);
   } else {
     showStatus("Erro: Não conectado ao broker MQTT", "error");
   }
@@ -199,7 +202,6 @@ function updateConnectionStatus() {
 
 window.addEventListener('load', () => {
   initMQTT();
-  
   elements.addAlarmBtn.addEventListener('click', addAlarm);
   elements.cancelAllBtn.addEventListener('click', clearAllAlarms);
 });
