@@ -37,6 +37,12 @@ const elements = {
   statusText: document.querySelector('.status-text')
 };
 
+if (typeof Paho === 'undefined') {
+  console.error('Paho MQTT library not loaded! Check your script import.');
+} else {
+  console.log('Paho MQTT loaded successfully:', Paho);
+}
+
 function initMQTT() {
   if (appState.client && appState.client.isConnected()) {
     appState.client.disconnect();
