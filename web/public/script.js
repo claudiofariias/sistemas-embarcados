@@ -3,7 +3,9 @@ const mqttConfig = {
   port: 8884,
   path: "/mqtt",
   clientId: "web_" + Math.random().toString(16).substr(2, 8),
-  useSSL: true, 
+  useSSL: true,
+  protocol: "wss",
+  reconnect: true,
   topics: {
     hour: "medicine_reminder/hour",
     minute: "medicine_reminder/minute",
@@ -15,34 +17,44 @@ const mqttConfig = {
   }
 };
 
-const appState = {
-  client: null,
-  connected: false,
-  alarms: []
-};
-
-const elements = {
-  addAlarmBtn: document.getElementById('addAlarmBtn'),
-  cancelAllBtn: document.getElementById('cancelAllBtn'),
-  alarmTimeInput: document.getElementById('alarmTime'),
-  alarmDescInput: document.getElementById('alarmDesc'),
-  alarmsList: document.getElementById('alarmsList'),
-  statusMessage: document.getElementById('statusMessage'),
-  connectionStatus: document.getElementById('connectionStatus'),
-  statusDot: document.querySelector('.status-dot'),
-  statusText: document.querySelector('.status-text')
-};
-
 function initMQTT() {
+  const hostUri = `wss://${mqttConfig.host}:${mqttConfig.port}${mqttConfig.path}`;
+  
   appState.client = new Paho.MQTT.Client(
-    mqttConfig.host,
-    mqttConfig.port,
-    mqttConfig.path,
+    hostUri,
     mqttConfig.clientId
   );
 
+  const connectOptions = {
+    useSSL: mqttConfig.useSSL,
+    timeout: 3,
+    mqttVersion: 4, 
+    keepAliveInterval: 60,
+    cleanSession: true,
+    onSuccess: () => {
+      console.log("Conectado ao broker MQTT via WSS");
+      appState.connected = true;
+      updateConnectionStatus();
+      appState.client.subscribe(mqttConfig.topics.status);
+      appState.client.subscribe(mqttConfig.topics.list);
+      requestAlarmsList();
+    },
+    onFailure: (error) => {
+      console.error("Falha na conexão WSS:", error.errorMessage);
+      if (mqttConfig.port === 8884) {
+        console.log("Tentando porta 8883...");
+        mqttConfig.port = 8883;
+        setTimeout(initMQTT, 3000);
+      } else {
+        setTimeout(initMQTT, 5000);
+      }
+    }
+  };
+
   appState.client.onConnectionLost = (response) => {
-    console.log("Conexão perdida:", response.errorMessage);
+    if (response.errorCode !== 0) {
+      console.log("Conexão perdida:", response.errorMessage);
+    }
     appState.connected = false;
     updateConnectionStatus();
     setTimeout(initMQTT, 5000);
@@ -54,22 +66,6 @@ function initMQTT() {
       showStatus(message.payloadString, "success");
     } else if (message.destinationName === mqttConfig.topics.list) {
       updateAlarmsList(message.payloadString);
-    }
-  };
-
-  const connectOptions = {
-    timeout: 3,
-    onSuccess: () => {
-      console.log("Conectado ao broker MQTT");
-      appState.connected = true;
-      updateConnectionStatus();
-      appState.client.subscribe(mqttConfig.topics.status);
-      appState.client.subscribe(mqttConfig.topics.list);
-      requestAlarmsList();
-    },
-    onFailure: (error) => {
-      console.error("Falha na conexão:", error.errorMessage);
-      setTimeout(initMQTT, 5000);
     }
   };
 
