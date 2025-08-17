@@ -19,6 +19,24 @@ const mqttConfig = {
   }
 };
 
+const appState = {
+  client: null,
+  connected: false,
+  alarms: []
+};
+
+const elements = {
+  addAlarmBtn: document.getElementById('addAlarmBtn'),
+  cancelAllBtn: document.getElementById('cancelAllBtn'),
+  alarmTimeInput: document.getElementById('alarmTime'),
+  alarmDescInput: document.getElementById('alarmDesc'),
+  alarmsList: document.getElementById('alarmsList'),
+  statusMessage: document.getElementById('statusMessage'),
+  connectionStatus: document.getElementById('connectionStatus'),
+  statusDot: document.querySelector('.status-dot'),
+  statusText: document.querySelector('.status-text')
+};
+
 function initMQTT() {
   if (appState.client && appState.client.isConnected()) {
     appState.client.disconnect();
