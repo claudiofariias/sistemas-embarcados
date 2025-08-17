@@ -1,8 +1,8 @@
 const mqttConfig = {
   hosts: [
-    "wss://broker.hivemq.com:8884/mqtt",
-    "wss://broker.hivemq.com:8883/mqtt",
-    "wss://broker.emqx.io:8084/mqtt"
+    "broker.hivemq.com:8884/mqtt",
+    "broker.hivemq.com:8883/mqtt",
+    "broker.emqx.io:8084/mqtt"
   ],
   currentHostIndex: 0,
   clientId: "web_" + Math.random().toString(16).substr(2, 8),
@@ -37,11 +37,6 @@ const elements = {
   statusText: document.querySelector('.status-text')
 };
 
-if (typeof Paho === 'undefined') {
-  console.error('Paho MQTT library not loaded! Check your script import.');
-} else {
-  console.log('Paho MQTT loaded successfully:', Paho);
-}
 
 function initMQTT() {
   if (appState.client && appState.client.isConnected()) {
@@ -49,9 +44,12 @@ function initMQTT() {
   }
 
   const currentHost = mqttConfig.hosts[mqttConfig.currentHostIndex];
+  const [host, port, path] = parseHostUrl(currentHost);
   
-  appState.client = new Paho.MQTT.Client(
-    currentHost,
+  appState.client = new Paho.Client(
+    host,
+    Number(port),
+    path,
     mqttConfig.clientId
   );
 
@@ -82,8 +80,8 @@ function initMQTT() {
       console.log("Conectado via", mqttConfig.hosts[mqttConfig.currentHostIndex]);
       appState.connected = true;
       updateConnectionStatus();
-      appState.client.subscribe(mqttConfig.topics.status);
-      appState.client.subscribe(mqttConfig.topics.list);
+      appState.client.subscribe(mqttConfig.topics.status, {qos: 0});
+      appState.client.subscribe(mqttConfig.topics.list, {qos: 0});
       requestAlarmsList();
     },
     onFailure: (error) => {
@@ -94,6 +92,14 @@ function initMQTT() {
   };
 
   appState.client.connect(connectOptions);
+}
+
+function parseHostUrl(url) {
+  const withoutProtocol = url.replace(/^wss?:\/\//, '');
+  const [hostPort, ...pathParts] = withoutProtocol.split('/');
+  const [host, port] = hostPort.split(':');
+  const path = pathParts.join('/') || 'mqtt';
+  return [host, port || '8884', path];
 }
 
 function updateAlarmsList(alarmString) {
