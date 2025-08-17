@@ -1,8 +1,9 @@
 const mqttConfig = {
   host: "broker.hivemq.com",
-  port: 8000,
+  port: 8884,
   path: "/mqtt",
   clientId: "web_" + Math.random().toString(16).substr(2, 8),
+  useSSL: true, 
   topics: {
     hour: "medicine_reminder/hour",
     minute: "medicine_reminder/minute",
