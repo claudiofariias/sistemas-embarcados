@@ -3,10 +3,7 @@
   "builds": [
     { 
       "src": "api/*.js", 
-      "use": "@vercel/node",
-      "config": { 
-        "includeFiles": ["api/**"]
-      }
+      "use": "@vercel/node"
     },
     { 
       "src": "public/**", 
@@ -16,30 +13,20 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/$1",
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
         "Content-Security-Policy": "default-src 'self'; connect-src 'self' wss://broker.hivemq.com wss://broker.emqx.io; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com"
-      }
+      },
+      "dest": "/api/$1"
     },
     { 
       "src": "/(.*)", 
-      "dest": "/public/$1",
       "headers": {
         "Content-Security-Policy": "default-src 'self'; connect-src 'self' wss://broker.hivemq.com wss://broker.emqx.io; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com"
-      }
-    },
-    {
-      "src": "/",
-      "dest": "/public/index.html"
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/public/$1"
+      },
+      "dest": "/public/$1"
     }
   ]
 }
