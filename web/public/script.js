@@ -168,62 +168,36 @@ function requestAlarmsList() {
 }
 
 async function addAlarm() {
+  const time = document.getElementById('alarmTime').value;
+  const medicine = document.getElementById('alarmDesc').value.trim();
+
+  if (!time || !medicine) {
+    alert('Preencha todos os campos');
+    return;
+  }
+
   try {
-    const time = elements.alarmTimeInput.value;
-    const medicine = elements.alarmDescInput.value.trim();
-
-    if (!time || !medicine) {
-      throw new Error('Preencha todos os campos');
-    }
-
-    const [hourStr, minuteStr] = time.split(':');
-    const hour = parseInt(hourStr);
-    const minute = parseInt(minuteStr);
-
-    if (isNaN(hour) || hour < 0 || hour > 23 || 
-        isNaN(minute) || minute < 0 || minute > 59) {
-      throw new Error('Horário inválido (use HH:MM entre 00:00 e 23:59)');
-    }
-
-    const apiUrl = 'https://sistemas-embarcados-claudiofariias-projects.vercel.app/api/alarms';
-
-    // Adicione este debug:
-    console.log('Enviando para:', apiUrl, {
-      hour, minute, medicine
-    });
-
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hour, minute, medicine })
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        hour: parseInt(time.split(':')[0]),
+        minute: parseInt(time.split(':')[1]),
+        medicine
+      })
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || 
-        `Erro no servidor (status ${response.status})`
-      );
+    const data = await response.json();
+    if (response.ok) {
+      alert('Alarme adicionado com sucesso!');
+    } else {
+      alert(data.error || 'Erro ao adicionar alarme');
     }
-
-    showStatus('Alarme adicionado com sucesso!', 'success');
-    elements.alarmTimeInput.value = '';
-    elements.alarmDescInput.value = '';
-    elements.alarmTimeInput.focus();
-    
-    await requestAlarmsList();
-
   } catch (error) {
-    console.error('Erro ao adicionar alarme:', error);
-    
-    let errorMessage = error.message;
-    if (error.name === 'AbortError') {
-      errorMessage = 'Tempo de conexão esgotado';
-    } else if (error instanceof TypeError) {
-      errorMessage = 'Erro de conexão com o servidor';
-    }
-    
-    showStatus(errorMessage, 'error');
+    console.error('Erro:', error);
+    alert('Erro de conexão');
   }
 }
 
