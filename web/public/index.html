@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle do Despertador de Medicamentos</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Lembrete de Medicamentos</h1>
+    
+    <div class="input-group">
+      <label for="alarmTime">Horário do Medicamento</label>
+      <input type="time" id="alarmTime" required>
+    </div>
+
+    <div class="input-group">
+      <label for="alarmDesc">Nome do Medicamento</label>
+      <input type="text" id="alarmDesc" placeholder="Ex: Paracetamol 500mg" required maxlength="30">
+    </div>
+
+    <button id="addAlarmBtn" class="btn-primary">Adicionar Alarme</button>
+
+    <div class="alarms-section">
+      <div class="section-title">
+        <h2>Próximos Alarmes</h2>
+        <button id="cancelAllBtn" class="btn-danger">Cancelar Todos</button>
+      </div>
+      
+      <div class="alarms-list" id="alarmsList">
+        <div class="alarm-item">
+          <span>Nenhum alarme configurado</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusMessage" class="status-message"></div>
+    <div id="connectionStatus" class="connection-status">
+      <span class="status-dot disconnected"></span>
+      <span class="status-text">Desconectado</span>
+    </div>
+  </div>
+</body>
+</html>

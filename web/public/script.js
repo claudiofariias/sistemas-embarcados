@@ -1,0 +1,208 @@
+const mqttConfig = {
+  host: "broker.hivemq.com",
+  port: 8000,
+  path: "/mqtt",
+  clientId: "web_" + Math.random().toString(16).substr(2, 8),
+  topics: {
+    hour: "medicine_reminder/hour",
+    minute: "medicine_reminder/minute",
+    medicine: "medicine_reminder/medicine",
+    add: "medicine_reminder/add",
+    clear: "medicine_reminder/clear",
+    status: "medicine_reminder/status",
+    list: "medicine_reminder/list"
+  }
+};
+
+const appState = {
+  client: null,
+  connected: false,
+  alarms: []
+};
+
+const elements = {
+  addAlarmBtn: document.getElementById('addAlarmBtn'),
+  cancelAllBtn: document.getElementById('cancelAllBtn'),
+  alarmTimeInput: document.getElementById('alarmTime'),
+  alarmDescInput: document.getElementById('alarmDesc'),
+  alarmsList: document.getElementById('alarmsList'),
+  statusMessage: document.getElementById('statusMessage'),
+  connectionStatus: document.getElementById('connectionStatus'),
+  statusDot: document.querySelector('.status-dot'),
+  statusText: document.querySelector('.status-text')
+};
+
+function initMQTT() {
+  appState.client = new Paho.MQTT.Client(
+    mqttConfig.host,
+    mqttConfig.port,
+    mqttConfig.path,
+    mqttConfig.clientId
+  );
+
+  appState.client.onConnectionLost = (response) => {
+    console.log("Conexão perdida:", response.errorMessage);
+    appState.connected = false;
+    updateConnectionStatus();
+    setTimeout(initMQTT, 5000);
+  };
+
+  appState.client.onMessageArrived = (message) => {
+    console.log("Mensagem recebida:", message.destinationName, message.payloadString);
+    if (message.destinationName === mqttConfig.topics.status) {
+      showStatus(message.payloadString, "success");
+    } else if (message.destinationName === mqttConfig.topics.list) {
+      updateAlarmsList(message.payloadString);
+    }
+  };
+
+  const connectOptions = {
+    timeout: 3,
+    onSuccess: () => {
+      console.log("Conectado ao broker MQTT");
+      appState.connected = true;
+      updateConnectionStatus();
+      appState.client.subscribe(mqttConfig.topics.status);
+      appState.client.subscribe(mqttConfig.topics.list);
+      requestAlarmsList();
+    },
+    onFailure: (error) => {
+      console.error("Falha na conexão:", error.errorMessage);
+      setTimeout(initMQTT, 5000);
+    }
+  };
+
+  appState.client.connect(connectOptions);
+}
+
+function updateAlarmsList(alarmString) {
+  elements.alarmsList.innerHTML = "";
+  appState.alarms = [];
+
+  if (!alarmString || alarmString.trim() === "") {
+    elements.alarmsList.innerHTML = `
+      <div class="alarm-item">
+        <span>Nenhum alarme configurado</span>
+      </div>
+    `;
+    return;
+  }
+
+  const alarmItems = alarmString.split("|");
+
+  alarmItems.forEach(item => {
+    if (!item) return;
+    const parts = item.split(",");
+    if (parts.length >= 3) {
+      const hour = parseInt(parts[0]);
+      const minute = parseInt(parts[1]);
+      const medicine = parts.slice(2).join(",");
+
+      appState.alarms.push({ hour, minute, medicine });
+
+      const alarmElement = document.createElement("div");
+      alarmElement.className = "alarm-item";
+      alarmElement.innerHTML = `
+        <div>
+          <span class="alarm-time">${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}</span>
+          <span class="alarm-desc">${medicine}</span>
+        </div>
+      `;
+      elements.alarmsList.appendChild(alarmElement);
+    }
+  });
+
+  if (appState.alarms.length === 0) {
+    elements.alarmsList.innerHTML = `
+      <div class="alarm-item">
+        <span>Nenhum alarme configurado</span>
+      </div>
+    `;
+  }
+}
+
+function requestAlarmsList() {
+  if (appState.connected) {
+    const message = new Paho.MQTT.Message("1");
+    message.destinationName = mqttConfig.topics.list;
+    appState.client.send(message);
+  }
+}
+
+async function addAlarm() {
+  try {
+    const time = elements.alarmTimeInput.value;
+    const medicine = elements.alarmDescInput.value.trim();
+
+    if (!time || !medicine) {
+      throw new Error('Preencha todos os campos');
+    }
+
+    const [hourStr, minuteStr] = time.split(':');
+    const hour = parseInt(hourStr);
+    const minute = parseInt(minuteStr);
+
+    if (isNaN(hour) || isNaN(minute)) {
+      throw new Error('Formato de hora inválido (use HH:MM)');
+    }
+
+    console.log(`Enviando: ${hour}:${minute} - ${medicine}`); 
+
+    const response = await fetch('/api/alarms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hour, minute, medicine })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Erro no servidor');
+    }
+
+    showStatus('Alarme adicionado com sucesso!', 'success');
+    elements.alarmTimeInput.value = '';
+    elements.alarmDescInput.value = '';
+    requestAlarmsList(); 
+
+  } catch (error) {
+    console.error('Erro ao adicionar alarme:', error);
+    showStatus(error.message, 'error');
+  }
+}
+
+function clearAllAlarms() {
+  sendMessage(mqttConfig.topics.clear, "1");
+  showStatus("Todos os alarmes foram removidos", "success");
+}
+
+function sendMessage(topic, message) {
+  if (appState.connected) {
+    const msg = new Paho.MQTT.Message(message);
+    msg.destinationName = topic;
+    appState.client.send(msg);
+    console.log(`[MQTT] Enviado: ${topic} | ${message}`);
+  } else {
+    showStatus("Erro: Não conectado ao broker MQTT", "error");
+  }
+}
+
+function showStatus(text, type) {
+  elements.statusMessage.textContent = text;
+  elements.statusMessage.className = `status-message show ${type}`;
+
+  setTimeout(() => {
+    elements.statusMessage.classList.remove("show");
+  }, 3000);
+}
+
+function updateConnectionStatus() {
+  elements.statusDot.className = `status-dot ${appState.connected ? 'connected' : 'disconnected'}`;
+  elements.statusText.textContent = appState.connected ? 'Conectado' : 'Desconectado';
+}
+
+window.addEventListener('load', () => {
+  initMQTT();
+  
+  elements.addAlarmBtn.addEventListener('click', addAlarm);
+  elements.cancelAllBtn.addEventListener('click', clearAllAlarms);
+});

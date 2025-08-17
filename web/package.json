@@ -1,0 +1,10 @@
+{
+  "name": "despertador-web",
+  "version": "1.0.0",
+  "dependencies": {
+    "mqtt": "^4.3.7"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
