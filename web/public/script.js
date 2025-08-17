@@ -185,24 +185,17 @@ async function addAlarm() {
       throw new Error('Horário inválido (use HH:MM entre 00:00 e 23:59)');
     }
 
-    const apiUrl = window.location.hostname === 'localhost' 
-      ? '/api/alarms'
-      : `${window.location.origin}/api/alarms`;
+    const apiUrl = 'https://sistemas-embarcados-claudiofariias-projects.vercel.app/api/alarms';
 
-    console.log('Tentando acessar:', apiUrl);
+    // Adicione este debug:
+    console.log('Enviando para:', apiUrl, {
+      hour, minute, medicine
+    });
 
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ 
-        hour, 
-        minute, 
-        medicine: medicine.substring(0, 50)
-      }),
-      signal: AbortSignal.timeout(8000)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hour, minute, medicine })
     });
 
     if (!response.ok) {
