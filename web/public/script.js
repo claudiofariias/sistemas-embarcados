@@ -1,5 +1,5 @@
 const mqttConfig = {
-  hosts: [  // Lista de brokers com fallback
+  hosts: [
     "wss://broker.hivemq.com:8884/mqtt",
     "wss://broker.hivemq.com:8883/mqtt",
     "wss://broker.emqx.io:8084/mqtt"
@@ -18,8 +18,6 @@ const mqttConfig = {
     list: "medicine_reminder/list"
   }
 };
-
-// ... (appState e elements permanecem iguais)
 
 function initMQTT() {
   if (appState.client && appState.client.isConnected()) {
