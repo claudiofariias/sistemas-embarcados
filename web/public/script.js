@@ -37,6 +37,12 @@ const elements = {
   statusText: document.querySelector('.status-text')
 };
 
+if (typeof Paho.MQTT === 'undefined' && typeof Paho !== 'undefined') {
+  Paho.MQTT = {
+    Client: Paho.Client,
+    Message: Paho.Message
+  };
+}
 
 function initMQTT() {
   if (appState.client && appState.client.isConnected()) {
@@ -155,7 +161,7 @@ function updateAlarmsList(alarmString) {
 
 function requestAlarmsList() {
   if (appState.connected) {
-    const message = new Paho.MQTT.Message("1");
+    const message = new Paho.Message("1");
     message.destinationName = mqttConfig.topics.list;
     appState.client.send(message);
   }
@@ -205,10 +211,16 @@ function clearAllAlarms() {
 }
 
 function sendMessage(topic, message) {
-  if (appState.connected) {
-    const msg = new Paho.MQTT.Message(message);
-    msg.destinationName = topic;
-    appState.client.send(msg);
+  if (appState.connected && appState.client) {
+    try {
+      const msg = new Paho.Message(message);
+      msg.destinationName = topic;
+      appState.client.send(msg);
+      console.log(`Mensagem enviada para ${topic}: ${message}`);
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+      showStatus("Erro ao enviar mensagem", "error");
+    }
   } else {
     showStatus("Erro: Não conectado ao broker MQTT", "error");
   }
