@@ -9,7 +9,7 @@
       "src": "/api/(.*)",
       "dest": "/api/$1",
       "headers": {
-        "Access-Control-Allow-Origin": "https://sistemas-embarcados-7cif.vercel.app",
+        "Access-Control-Allow-Origin": "https://sistemas-embarcados-51pz.vercel.app",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type"
       }
