@@ -180,28 +180,55 @@ async function addAlarm() {
     const hour = parseInt(hourStr);
     const minute = parseInt(minuteStr);
 
-    if (isNaN(hour) || isNaN(minute)) {
-      throw new Error('Formato de hora inválido (use HH:MM)');
+    if (isNaN(hour) || hour < 0 || hour > 23 || 
+        isNaN(minute) || minute < 0 || minute > 59) {
+      throw new Error('Horário inválido (use HH:MM entre 00:00 e 23:59)');
     }
 
-    const response = await fetch('/api/alarms', {
+    const apiUrl = window.location.hostname === 'localhost' 
+      ? '/api/alarms'
+      : `${window.location.origin}/api/alarms`;
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hour, minute, medicine })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ 
+        hour, 
+        minute, 
+        medicine: medicine.substring(0, 50)
+      }),
+      signal: AbortSignal.timeout(8000)
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Erro no servidor');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || 
+        `Erro no servidor (status ${response.status})`
+      );
     }
 
     showStatus('Alarme adicionado com sucesso!', 'success');
     elements.alarmTimeInput.value = '';
     elements.alarmDescInput.value = '';
-    requestAlarmsList();
+    elements.alarmTimeInput.focus();
+    
+    await requestAlarmsList();
 
   } catch (error) {
-    showStatus(error.message, 'error');
+    console.error('Erro ao adicionar alarme:', error);
+    
+    let errorMessage = error.message;
+    if (error.name === 'AbortError') {
+      errorMessage = 'Tempo de conexão esgotado';
+    } else if (error instanceof TypeError) {
+      errorMessage = 'Erro de conexão com o servidor';
+    }
+    
+    showStatus(errorMessage, 'error');
   }
 }
 
