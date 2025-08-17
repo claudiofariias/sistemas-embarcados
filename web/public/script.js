@@ -1,8 +1,8 @@
 const mqttConfig = {
   hosts: [
-    "broker.hivemq.com:8884/mqtt",
-    "broker.hivemq.com:8883/mqtt",
-    "broker.emqx.io:8084/mqtt"
+    "wss://broker.hivemq.com:8884/mqtt",
+    "wss://broker.hivemq.com:8883/mqtt",
+    "wss://broker.emqx.io:8084/mqtt"
   ],
   currentHostIndex: 0,
   clientId: "web_" + Math.random().toString(16).substr(2, 8),
@@ -46,10 +46,12 @@ function initMQTT() {
   const currentHost = mqttConfig.hosts[mqttConfig.currentHostIndex];
   const [host, port, path] = parseHostUrl(currentHost);
   
+  const formattedPath = path.startsWith('/') ? path : `/${path}`;
+  
   appState.client = new Paho.Client(
     host,
     Number(port),
-    path,
+    formattedPath, 
     mqttConfig.clientId
   );
 
@@ -98,9 +100,12 @@ function parseHostUrl(url) {
   const withoutProtocol = url.replace(/^wss?:\/\//, '');
   const [hostPort, ...pathParts] = withoutProtocol.split('/');
   const [host, port] = hostPort.split(':');
-  const path = pathParts.join('/') || 'mqtt';
-  return [host, port || '8884', path];
+  const finalPort = port || '8884';
+  const finalPath = pathParts.join('/') || 'mqtt';
+  
+  return [host, finalPort, finalPath];
 }
+
 
 function updateAlarmsList(alarmString) {
   elements.alarmsList.innerHTML = "";
